@@ -1,3 +1,4 @@
+#include <vector>
 #include <stdexcept>
 #include <filesystem>
 
@@ -61,57 +62,66 @@ namespace exqudens {
 
     void SubProcess::open(const std::string& command) {
         try {
+            if (isOpen()) {
+                throw std::runtime_error(CALL_INFO + ": use 'close' first");
+            }
+
+            if (command.empty()) {
+                throw std::runtime_error(CALL_INFO + ": empty 'command'");
+            }
+
             // Create pipes
             SECURITY_ATTRIBUTES saAttr;
             saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
             saAttr.bInheritHandle = TRUE;
             saAttr.lpSecurityDescriptor = NULL;
 
-            if (!CreatePipe(&ptrParentForRead, &ptrChildOut, &saAttr, 0)) {
+            if (!CreatePipe(&parentOut, &childOut, &saAttr, 0) || !CreatePipe(&childIn, &parentIn, &saAttr, 0)) {
                 close();
-                throw std::runtime_error(CALL_INFO + ": Error creating 'out' pipe: " + std::to_string(GetLastError()));
-            }
-            if (!CreatePipe(&ptrChildIn, &ptrParentForWrite, &saAttr, 0)) {
-                close();
-                throw std::runtime_error(CALL_INFO + ": Error creating 'in' pipe: " + std::to_string(GetLastError()));
+                throw std::runtime_error(CALL_INFO + ": Error creating pipes: " + std::to_string(GetLastError()));
             }
 
-            // Make sure that the pipe handles are not inherited by the child process
-            SetHandleInformation(ptrChildOut, HANDLE_FLAG_INHERIT, 0);
-            SetHandleInformation(ptrChildIn, HANDLE_FLAG_INHERIT, 0);
+            // Set info
+            if (!SetHandleInformation(parentIn, HANDLE_FLAG_INHERIT, 0) || !SetHandleInformation(parentOut, HANDLE_FLAG_INHERIT, 0)) {
+                close();
+                throw std::runtime_error(CALL_INFO + ": Error setting info: " + std::to_string(GetLastError()));
+            }
 
             // Set up STARTUPINFO
             STARTUPINFO si;
             ZeroMemory(&si, sizeof(STARTUPINFO));
-            si.cb = sizeof(STARTUPINFO);
-            si.hStdInput = ptrChildIn;
-            si.hStdOutput = ptrChildOut;
-            si.hStdError = ptrChildOut;
+            si.cb = sizeof(si);
+            si.hStdInput = childIn;
+            si.hStdOutput = childOut;
+            si.hStdError = childOut;
             si.dwFlags |= STARTF_USESTDHANDLES;
 
             // Create the process
             PROCESS_INFORMATION pi;
-            ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
+            ZeroMemory(&pi, sizeof(pi));
 
-            if (!CreateProcess(NULL, const_cast<char*>(command.c_str()), NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi)) {
+            // Create process
+            if (!CreateProcess(NULL, const_cast<char*>(command.c_str()), nullptr, nullptr, TRUE, 0, nullptr, nullptr, &si, &pi)) {
                 close();
                 throw std::runtime_error(CALL_INFO + ": Error creating process: " + std::to_string(GetLastError()));
             }
 
             // Store process poiters
-            ptrChildProcess = pi.hProcess;
-            ptrChildThread = pi.hThread;
+            childProcess = pi.hProcess;
+            childThread = pi.hThread;
 
             // Close unused handles
-            /* CloseHandle(ptrChildIn);
-            ptrChildIn = nullptr; */
-            /* CloseHandle(ptrChildOut);
-            ptrChildOut = nullptr; */
+            /* if (childIn) {
+                CloseHandle(childIn);
+                childIn = nullptr;
+            } */
+            /* if (childOut) {
+                CloseHandle(childOut);
+                childOut = nullptr;
+            } */
 
             // Wait for process to finish
-            WaitForSingleObject(ptrChildProcess, INFINITE);
-
-            processOpen = true;
+            //WaitForSingleObject(childProcess, INFINITE);
         } catch (...) {
             std::throw_with_nested(std::runtime_error(CALL_INFO));
         }
@@ -119,7 +129,17 @@ namespace exqudens {
 
     bool SubProcess::isOpen() {
         try {
-            return processOpen;
+            if (
+                parentIn
+                || parentOut
+                || childIn
+                || childOut
+                || childProcess
+                || childThread
+            ) {
+                return true;
+            }
+            return false;
         } catch (...) {
             std::throw_with_nested(std::runtime_error(CALL_INFO));
         }
@@ -127,16 +147,23 @@ namespace exqudens {
 
     void SubProcess::write(const std::string& value) {
         try {
+            if (!isOpen()) {
+                throw std::runtime_error(CALL_INFO + ": use 'open' first");
+            }
+
+            if (value.empty()) {
+                return;
+            }
+
             unsigned long bytesWritten = 0;
-            if (!WriteFile(ptrParentForWrite, value.c_str(), value.size(), &bytesWritten, NULL)) {
+
+            if (!WriteFile(parentIn, value.c_str(), value.size(), &bytesWritten, NULL)) {
                 throw std::runtime_error(CALL_INFO + ": Error writing to process: " + std::to_string(GetLastError()));
             }
+
             if (bytesWritten != value.size()) {
                 throw std::runtime_error(CALL_INFO + ": Error writing to process: bytesWritten: " + std::to_string(bytesWritten) + " != value.size: " + std::to_string(value.size()));
             }
-
-            // Wait for process to finish
-            WaitForSingleObject(ptrChildProcess, INFINITE);
         } catch (...) {
             std::throw_with_nested(std::runtime_error(CALL_INFO));
         }
@@ -144,17 +171,30 @@ namespace exqudens {
 
     std::string SubProcess::read() {
         try {
-            // Wait for process to finish
-            WaitForSingleObject(ptrChildProcess, INFINITE);
-
-            char buffer[1024];
-            unsigned long bytesRead = 0;
-            std::string output;
-            while (ReadFile(/* ptrParentForRead */ ptrChildOut, buffer, sizeof(buffer) - 1, &bytesRead, NULL) && bytesRead > 0) {
-                buffer[bytesRead] = '\0';
-                output += buffer;
+            if (!isOpen()) {
+                throw std::runtime_error(CALL_INFO + ": use 'open' first");
             }
-            return output;
+
+            std::vector<char> buffer = {};
+            std::string data = {};
+            unsigned long bytesRead = 0;
+            std::string result = {};
+
+            while (true) {
+                buffer = std::vector<char>(1024, 0);
+                data = {};
+
+                if (!ReadFile(parentOut, buffer.data(), buffer.size(), &bytesRead, nullptr) || bytesRead == 0 || buffer.back() == 0) {
+                    data = std::string(buffer.data());
+                    result += data;
+                    break;
+                }
+
+                data = std::string(buffer.data());
+                result += data;
+            }
+
+            return result;
         } catch (...) {
             std::throw_with_nested(std::runtime_error(CALL_INFO));
         }
@@ -162,32 +202,31 @@ namespace exqudens {
 
     void SubProcess::close() {
         try {
-            if (processOpen) {
-                if (ptrParentForWrite) {
-                    CloseHandle(ptrParentForWrite);
-                    ptrParentForWrite = nullptr;
+            if (isOpen()) {
+                if (parentIn) {
+                    CloseHandle(parentIn);
+                    parentIn = nullptr;
                 }
-                if (ptrParentForRead) {
-                    CloseHandle(ptrParentForRead);
-                    ptrParentForRead = nullptr;
+                if (parentOut) {
+                    CloseHandle(parentOut);
+                    parentOut = nullptr;
                 }
-                if (ptrChildIn) {
-                    CloseHandle(ptrChildIn);
-                    ptrChildIn = nullptr;
+                if (childIn) {
+                    CloseHandle(childIn);
+                    childIn = nullptr;
                 }
-                if (ptrChildOut) {
-                    CloseHandle(ptrChildOut);
-                    ptrChildOut = nullptr;
+                if (childOut) {
+                    CloseHandle(childOut);
+                    childOut = nullptr;
                 }
-                if (ptrChildProcess) {
-                    CloseHandle(ptrChildProcess);
-                    ptrChildProcess = nullptr;
+                if (childProcess) {
+                    CloseHandle(childProcess);
+                    childProcess = nullptr;
                 }
-                if (ptrChildThread) {
-                    CloseHandle(ptrChildThread);
-                    ptrChildThread = nullptr;
+                if (childThread) {
+                    CloseHandle(childThread);
+                    childThread = nullptr;
                 }
-                processOpen = false;
             }
         } catch (...) {
             std::throw_with_nested(std::runtime_error(CALL_INFO));

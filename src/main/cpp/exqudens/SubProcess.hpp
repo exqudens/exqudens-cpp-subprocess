@@ -17,13 +17,12 @@ namespace exqudens {
                 const std::string& message
             )> logFunction;
             bool autoClose = true;
-            bool processOpen = false;
-            void* ptrParentForWrite = nullptr;
-            void* ptrParentForRead = nullptr;
-            void* ptrChildIn = nullptr;
-            void* ptrChildOut = nullptr;
-            void* ptrChildProcess = nullptr;
-            void* ptrChildThread = nullptr;
+            void* parentIn = nullptr;
+            void* parentOut = nullptr;
+            void* childIn = nullptr;
+            void* childOut = nullptr;
+            void* childProcess = nullptr;
+            void* childThread = nullptr;
 
         public:
 

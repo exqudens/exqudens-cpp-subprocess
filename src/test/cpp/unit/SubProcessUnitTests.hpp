@@ -104,10 +104,13 @@ namespace exqudens {
 
             interface->open(command);
 
-            data = "aaa";
+            data = "abc\r\n";
             interface->write(data);
             data = interface->read();
             log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("data: ") + data);
+
+            data = "exit\r\n";
+            interface->write(data);
 
             interface->close();
 
