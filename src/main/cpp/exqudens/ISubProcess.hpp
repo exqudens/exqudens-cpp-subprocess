@@ -35,6 +35,8 @@ namespace exqudens {
 
             virtual std::string read() = 0;
 
+            virtual std::string readError() = 0;
+
             virtual void close() = 0;
 
             virtual ~ISubProcess() = default;

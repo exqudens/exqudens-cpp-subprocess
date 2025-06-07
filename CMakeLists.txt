@@ -438,15 +438,20 @@ if(NOT "${SKIP_TEST}")
         LIBRARY_OUTPUT_DIRECTORY_DEBUG          "${PROJECT_BINARY_DIR}/test/lib"
     )
 
-    add_library("test-lib" STATIC
+    add_library("test-lib"
         "src/test/cpp/TestUtils.hpp"
         "src/test/cpp/TestUtils.cpp"
         "src/test/cpp/TestApplication.hpp"
         "src/test/cpp/TestApplication.cpp"
         "src/test/cpp/unit/SubProcessUnitTests.hpp"
     )
+    generate_export_header("test-lib"
+        BASE_NAME "TEST_LIB"
+        EXPORT_FILE_NAME "generated/src/test/cpp/test_lib_export.hpp"
+    )
     target_include_directories("test-lib" PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src/test/cpp>"
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/generated/src/test/cpp>"
         "$<INSTALL_INTERFACE:include>"
     )
     target_link_libraries("test-lib" PUBLIC

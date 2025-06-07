@@ -76,13 +76,21 @@ namespace exqudens {
             saAttr.bInheritHandle = TRUE;
             saAttr.lpSecurityDescriptor = NULL;
 
-            if (!CreatePipe(&parentOut, &childOut, &saAttr, 0) || !CreatePipe(&childIn, &parentIn, &saAttr, 0)) {
+            if (
+                !CreatePipe(&parentErr, &childErr, &saAttr, 0)
+                || !CreatePipe(&parentOut, &childOut, &saAttr, 0)
+                || !CreatePipe(&childIn, &parentIn, &saAttr, 0)
+            ) {
                 close();
                 throw std::runtime_error(CALL_INFO + ": Error creating pipes: " + std::to_string(GetLastError()));
             }
 
             // Set info
-            if (!SetHandleInformation(parentIn, HANDLE_FLAG_INHERIT, 0) || !SetHandleInformation(parentOut, HANDLE_FLAG_INHERIT, 0)) {
+            if (
+                !SetHandleInformation(parentErr, HANDLE_FLAG_INHERIT, 0)
+                || !SetHandleInformation(parentOut, HANDLE_FLAG_INHERIT, 0)
+                || !SetHandleInformation(parentIn, HANDLE_FLAG_INHERIT, 0)
+            ) {
                 close();
                 throw std::runtime_error(CALL_INFO + ": Error setting info: " + std::to_string(GetLastError()));
             }
@@ -93,7 +101,7 @@ namespace exqudens {
             si.cb = sizeof(si);
             si.hStdInput = childIn;
             si.hStdOutput = childOut;
-            si.hStdError = childOut;
+            si.hStdError = childErr;
             si.dwFlags |= STARTF_USESTDHANDLES;
 
             // Create the process
@@ -109,19 +117,6 @@ namespace exqudens {
             // Store process poiters
             childProcess = pi.hProcess;
             childThread = pi.hThread;
-
-            // Close unused handles
-            /* if (childIn) {
-                CloseHandle(childIn);
-                childIn = nullptr;
-            } */
-            /* if (childOut) {
-                CloseHandle(childOut);
-                childOut = nullptr;
-            } */
-
-            // Wait for process to finish
-            //WaitForSingleObject(childProcess, INFINITE);
         } catch (...) {
             std::throw_with_nested(std::runtime_error(CALL_INFO));
         }
@@ -132,8 +127,10 @@ namespace exqudens {
             if (
                 parentIn
                 || parentOut
+                || parentErr
                 || childIn
                 || childOut
+                || childErr
                 || childProcess
                 || childThread
             ) {
@@ -171,30 +168,15 @@ namespace exqudens {
 
     std::string SubProcess::read() {
         try {
-            if (!isOpen()) {
-                throw std::runtime_error(CALL_INFO + ": use 'open' first");
-            }
+            return readInternal(true);
+        } catch (...) {
+            std::throw_with_nested(std::runtime_error(CALL_INFO));
+        }
+    }
 
-            std::vector<char> buffer = {};
-            std::string data = {};
-            unsigned long bytesRead = 0;
-            std::string result = {};
-
-            while (true) {
-                buffer = std::vector<char>(1024, 0);
-                data = {};
-
-                if (!ReadFile(parentOut, buffer.data(), buffer.size(), &bytesRead, nullptr) || bytesRead == 0 || buffer.back() == 0) {
-                    data = std::string(buffer.data());
-                    result += data;
-                    break;
-                }
-
-                data = std::string(buffer.data());
-                result += data;
-            }
-
-            return result;
+    std::string SubProcess::readError() {
+        try {
+            return readInternal(false);
         } catch (...) {
             std::throw_with_nested(std::runtime_error(CALL_INFO));
         }
@@ -203,9 +185,9 @@ namespace exqudens {
     void SubProcess::close() {
         try {
             if (isOpen()) {
-                if (parentIn) {
-                    CloseHandle(parentIn);
-                    parentIn = nullptr;
+                if (parentErr) {
+                    CloseHandle(parentErr);
+                    parentErr = nullptr;
                 }
                 if (parentOut) {
                     CloseHandle(parentOut);
@@ -219,6 +201,10 @@ namespace exqudens {
                     CloseHandle(childOut);
                     childOut = nullptr;
                 }
+                if (childErr) {
+                    CloseHandle(childErr);
+                    childErr = nullptr;
+                }
                 if (childProcess) {
                     CloseHandle(childProcess);
                     childProcess = nullptr;
@@ -226,6 +212,10 @@ namespace exqudens {
                 if (childThread) {
                     CloseHandle(childThread);
                     childThread = nullptr;
+                }
+                if (parentIn) {
+                    CloseHandle(parentIn);
+                    parentIn = nullptr;
                 }
             }
         } catch (...) {
@@ -240,6 +230,44 @@ namespace exqudens {
             if (logFunction) logFunction(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOGGER_LEVEL_ERROR, std::string("throw in 'close': ") + e.what());
         } catch (...) {
             if (logFunction) logFunction(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOGGER_LEVEL_ERROR, "throw in 'close': unknown cause");
+        }
+    }
+
+    std::string SubProcess::readInternal(bool out) {
+        try {
+            if (!isOpen()) {
+                throw std::runtime_error(CALL_INFO + ": use 'open' first");
+            }
+
+            std::vector<char> buffer = {};
+            std::string data = {};
+            unsigned long bytesRead = 0;
+            std::string result = {};
+
+            while (true) {
+                buffer = std::vector<char>(1024, 0);
+                data = {};
+                bool readResult = false;
+
+                if (out) {
+                    readResult = ReadFile(parentOut, buffer.data(), buffer.size(), &bytesRead, nullptr);
+                } else {
+                    readResult = ReadFile(parentErr, buffer.data(), buffer.size(), &bytesRead, nullptr);
+                }
+
+                if (!readResult || bytesRead == 0 || buffer.back() == 0) {
+                    data = std::string(buffer.data());
+                    result += data;
+                    break;
+                }
+
+                data = std::string(buffer.data());
+                result += data;
+            }
+
+            return result;
+        } catch (...) {
+            std::throw_with_nested(std::runtime_error(CALL_INFO));
         }
     }
 

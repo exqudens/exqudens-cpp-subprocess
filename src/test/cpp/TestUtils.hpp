@@ -7,7 +7,9 @@
 #include <map>
 #include <exception>
 
-class TestUtils {
+#include "test_lib_export.hpp"
+
+class TEST_LIB_EXPORT TestUtils {
 
     private:
 

@@ -1,6 +1,8 @@
 #pragma once
 
-class TestApplication {
+#include "test_lib_export.hpp"
+
+class TEST_LIB_EXPORT TestApplication {
 
     private:
 

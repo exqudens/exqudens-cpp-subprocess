@@ -19,8 +19,10 @@ namespace exqudens {
             bool autoClose = true;
             void* parentIn = nullptr;
             void* parentOut = nullptr;
+            void* parentErr = nullptr;
             void* childIn = nullptr;
             void* childOut = nullptr;
+            void* childErr = nullptr;
             void* childProcess = nullptr;
             void* childThread = nullptr;
 
@@ -52,9 +54,15 @@ namespace exqudens {
 
             std::string read() override;
 
+            std::string readError() override;
+
             void close() override;
 
             ~SubProcess() override;
+
+        private:
+
+            std::string readInternal(bool out);
 
     };
 

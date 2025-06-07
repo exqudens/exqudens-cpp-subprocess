@@ -84,6 +84,8 @@ namespace exqudens {
             std::shared_ptr<ISubProcess> interface = {};
             std::string version = {};
             std::string data = {};
+            std::string expected = {};
+            std::string actual = {};
 
             command = std::filesystem::path(std::filesystem::path(TestUtils::getProjectBinaryDir()) / "test" / "bin" / "test-executable.exe").generic_string();
             log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("command: ") + command);
@@ -104,10 +106,41 @@ namespace exqudens {
 
             interface->open(command);
 
-            data = "abc\r\n";
+            // case-1
+            interface->write("stdout\r\n");
+
+            data = "abc123\r\n";
+            log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("data: ") + data);
             interface->write(data);
+
+            expected = TestUtils::trim(TestUtils::toUpper(data));
+            log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("expected: ") + expected);
+
             data = interface->read();
             log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("data: ") + data);
+
+            actual = TestUtils::trim(data);
+            log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("actual: ") + actual);
+
+            ASSERT_EQ(expected, actual);
+
+            // case-2
+            interface->write("stderr\r\n");
+
+            data = "321cba\r\n";
+            log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("data: ") + data);
+            interface->write(data);
+
+            expected = TestUtils::trim(TestUtils::toUpper(data));
+            log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("expected: ") + expected);
+
+            data = interface->readError();
+            log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("data: ") + data);
+
+            actual = TestUtils::trim(data);
+            log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("actual: ") + actual);
+
+            ASSERT_EQ(expected, actual);
 
             data = "exit\r\n";
             interface->write(data);
