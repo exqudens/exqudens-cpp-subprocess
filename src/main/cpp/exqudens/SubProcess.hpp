@@ -56,7 +56,7 @@ namespace exqudens {
 
             std::string readError() override;
 
-            void close() override;
+            unsigned long close() override;
 
             ~SubProcess() override;
 

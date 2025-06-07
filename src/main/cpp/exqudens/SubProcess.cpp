@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <vector>
 #include <stdexcept>
 #include <filesystem>
@@ -182,42 +183,63 @@ namespace exqudens {
         }
     }
 
-    void SubProcess::close() {
+    unsigned long SubProcess::close() {
         try {
-            if (isOpen()) {
-                if (parentErr) {
-                    CloseHandle(parentErr);
-                    parentErr = nullptr;
-                }
-                if (parentOut) {
-                    CloseHandle(parentOut);
-                    parentOut = nullptr;
-                }
-                if (childIn) {
-                    CloseHandle(childIn);
-                    childIn = nullptr;
-                }
-                if (childOut) {
-                    CloseHandle(childOut);
-                    childOut = nullptr;
-                }
-                if (childErr) {
-                    CloseHandle(childErr);
-                    childErr = nullptr;
-                }
-                if (childProcess) {
-                    CloseHandle(childProcess);
-                    childProcess = nullptr;
-                }
-                if (childThread) {
-                    CloseHandle(childThread);
-                    childThread = nullptr;
-                }
-                if (parentIn) {
-                    CloseHandle(parentIn);
-                    parentIn = nullptr;
-                }
+            if (!isOpen()) {
+                throw std::runtime_error(CALL_INFO + ": use 'open' first");
             }
+
+            unsigned long exitCode = EXIT_SUCCESS;
+            bool getExitCodeResult = 0;
+            unsigned long getExitCodeError = 0;
+
+            // Wait for the process to finish
+            WaitForSingleObject(childProcess, INFINITE);
+
+            // Get exit code
+            getExitCodeResult = GetExitCodeProcess(childProcess, &exitCode);
+            if (!getExitCodeResult) {
+                getExitCodeError = GetLastError();
+            }
+
+            if (parentErr) {
+                CloseHandle(parentErr);
+                parentErr = nullptr;
+            }
+            if (parentOut) {
+                CloseHandle(parentOut);
+                parentOut = nullptr;
+            }
+            if (childIn) {
+                CloseHandle(childIn);
+                childIn = nullptr;
+            }
+            if (childOut) {
+                CloseHandle(childOut);
+                childOut = nullptr;
+            }
+            if (childErr) {
+                CloseHandle(childErr);
+                childErr = nullptr;
+            }
+            if (childProcess) {
+                CloseHandle(childProcess);
+                childProcess = nullptr;
+            }
+            if (childThread) {
+                CloseHandle(childThread);
+                childThread = nullptr;
+            }
+            if (parentIn) {
+                CloseHandle(parentIn);
+                parentIn = nullptr;
+            }
+
+            if (!getExitCodeResult) {
+                throw std::runtime_error(CALL_INFO + ": Error writing to process: " + std::to_string(getExitCodeError));
+            }
+
+            return exitCode;
         } catch (...) {
             std::throw_with_nested(std::runtime_error(CALL_INFO));
         }

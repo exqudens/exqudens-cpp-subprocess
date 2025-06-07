@@ -86,6 +86,8 @@ namespace exqudens {
             std::string data = {};
             std::string expected = {};
             std::string actual = {};
+            unsigned long expectedExitCode = {};
+            unsigned long actualExitCode = {};
 
             command = std::filesystem::path(std::filesystem::path(TestUtils::getProjectBinaryDir()) / "test" / "bin" / "test-executable.exe").generic_string();
             log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("command: ") + command);
@@ -104,9 +106,9 @@ namespace exqudens {
             version = interface->getVersion();
             log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("version: ") + version);
 
+            // case-1
             interface->open(command);
 
-            // case-1
             interface->write("stdout\r\n");
 
             data = "abc123\r\n";
@@ -124,7 +126,17 @@ namespace exqudens {
 
             ASSERT_EQ(expected, actual);
 
+            data = "exit\r\n";
+            interface->write(data);
+
+            expectedExitCode = 0;
+            actualExitCode = interface->close();
+
+            ASSERT_EQ(expectedExitCode, actualExitCode);
+
             // case-2
+            interface->open(command);
+
             interface->write("stderr\r\n");
 
             data = "321cba\r\n";
@@ -142,10 +154,13 @@ namespace exqudens {
 
             ASSERT_EQ(expected, actual);
 
-            data = "exit\r\n";
+            data = "error-2\r\n";
             interface->write(data);
 
-            interface->close();
+            expectedExitCode = 2;
+            actualExitCode = interface->close();
+
+            ASSERT_EQ(expectedExitCode, actualExitCode);
 
             log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, "end");
         } catch (const std::exception& e) {

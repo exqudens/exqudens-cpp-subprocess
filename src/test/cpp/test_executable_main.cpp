@@ -7,8 +7,14 @@
 int main(int argc, char** argv) {
     std::string line = {};
     bool toOut = true;
-    while (std::getline(std::cin, line) && line != "exit") {
-        if (line == "stdout") {
+    while (std::getline(std::cin, line)) {
+        if (line == "exit") {
+            return EXIT_SUCCESS;
+        } else if (line == "error" || line == "error-1") {
+            return EXIT_FAILURE;
+        } else if (line == "error-2") {
+            return 2;
+        } else if (line == "stdout") {
             toOut = true;
             continue;
         } else if (line == "stderr") {
