@@ -183,24 +183,15 @@ namespace exqudens {
         }
     }
 
-    unsigned long SubProcess::close() {
+    unsigned long SubProcess::close(unsigned long timeoutMilliSeconds) {
         try {
             if (!isOpen()) {
                 throw std::runtime_error(CALL_INFO + ": use 'open' first");
             }
 
-            unsigned long exitCode = EXIT_SUCCESS;
-            bool getExitCodeResult = 0;
+            unsigned long exitCode = EXIT_FAILURE;
+            bool getExitCodeResult = false;
             unsigned long getExitCodeError = 0;
-
-            // Wait for the process to finish
-            WaitForSingleObject(childProcess, INFINITE);
-
-            // Get exit code
-            getExitCodeResult = GetExitCodeProcess(childProcess, &exitCode);
-            if (!getExitCodeResult) {
-                getExitCodeError = GetLastError();
-            }
 
             if (parentErr) {
                 CloseHandle(parentErr);
@@ -223,6 +214,14 @@ namespace exqudens {
                 childErr = nullptr;
             }
             if (childProcess) {
+                // Wait for the process to finish
+                WaitForSingleObject(childProcess, timeoutMilliSeconds);
+
+                // Get exit code
+                getExitCodeResult = GetExitCodeProcess(childProcess, &exitCode);
+                if (!getExitCodeResult) {
+                    getExitCodeError = GetLastError();
+                }
                 CloseHandle(childProcess);
                 childProcess = nullptr;
             }
@@ -240,6 +239,14 @@ namespace exqudens {
             }
 
             return exitCode;
+        } catch (...) {
+            std::throw_with_nested(std::runtime_error(CALL_INFO));
+        }
+    }
+
+    unsigned long SubProcess::close() {
+        try {
+            return close(1000);
         } catch (...) {
             std::throw_with_nested(std::runtime_error(CALL_INFO));
         }

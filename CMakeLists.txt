@@ -1,42 +1,57 @@
 cmake_minimum_required(VERSION 3.25 FATAL_ERROR)
 
 set(CMAKE_UTIL_FILE "" CACHE STRING "...")
+set(USE_CONAN "1" CACHE BOOL "...")
 
-if("${CMAKE_UTIL_FILE}" STREQUAL "")
-    if(DEFINED "ENV{CMAKE_UTIL_FILE}")
-        set(CMAKE_UTIL_FILE "$ENV{CMAKE_UTIL_FILE}" CACHE STRING "..." FORCE)
+message(STATUS "USE_CONAN: '${USE_CONAN}'")
+
+if("${USE_CONAN}")
+    if("windows" IN_LIST "PRESET_NAME_ELEMENTS")
+        find_program(CONAN_COMMAND NAMES "conan.exe" PATHS ENV CONAN_PATH ENV PATH REQUIRED NO_CACHE NO_DEFAULT_PATH)
     else()
-        find_program(CONAN_COMMAND NAMES "conan.exe" "conan" PATHS ENV CONAN_PATH ENV PATH REQUIRED NO_CACHE NO_DEFAULT_PATH)
-        execute_process(
-            COMMAND "${CONAN_COMMAND}" "install"
-                    "--output-folder" "${CMAKE_CURRENT_BINARY_DIR}/tmp/conan/exqudens-cmake"
-                    "${CMAKE_SOURCE_DIR}/cmake-conanfile.py"
-            COMMAND_ECHO "STDERR"
-            ENCODING "UTF-8"
-            COMMAND_ERROR_IS_FATAL "ANY"
-        )
-        if(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/tmp/conan/exqudens-cmake/cmake/util.cmake")
-            message(FATAL_ERROR "Not exists: '${CMAKE_CURRENT_BINARY_DIR}/tmp/conan/exqudens-cmake/cmake/util.cmake'")
-        endif()
-        file(COPY "${CMAKE_CURRENT_BINARY_DIR}/tmp/conan/exqudens-cmake/cmake/util.cmake" DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/build")
-        set(CMAKE_UTIL_FILE "${CMAKE_CURRENT_SOURCE_DIR}/build/util.cmake")
-        cmake_path(NORMAL_PATH "CMAKE_UTIL_FILE")
-        set(CMAKE_UTIL_FILE "${CMAKE_UTIL_FILE}" CACHE STRING "..." FORCE)
+        find_program(CONAN_COMMAND NAMES "conan" PATHS ENV CONAN_PATH ENV PATH REQUIRED NO_CACHE NO_DEFAULT_PATH)
     endif()
 endif()
 
-set(USE_CONAN "1" CACHE BOOL "...")
+if("${CMAKE_UTIL_FILE}" STREQUAL "")
+    if("$ENV{CMAKE_UTIL_FILE}" STREQUAL "")
+        if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/build/dependencies/direct_deploy/exqudens-cmake/cmake/util.cmake")
+            if("${USE_CONAN}")
+                #[[execute_process(
+                    COMMAND "${CONAN_COMMAND}" "user" "$ENV{CONAN_LOGIN_USERNAME}" "-r" "artifactory" "-p"
+                    WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+                    ENCODING "UTF-8"
+                    COMMAND_ERROR_IS_FATAL "ANY"
+                )]]
+                execute_process(
+                    COMMAND "${CONAN_COMMAND}" "install" "--tool-requires=exqudens-cmake/2.0.1" "--deployer" "direct_deploy" "--deployer-folder" "${CMAKE_SOURCE_DIR}/build/dependencies"
+                    COMMAND_ECHO "STDERR"
+                    ENCODING "UTF-8"
+                    COMMAND_ERROR_IS_FATAL "ANY"
+                )
+                set(CMAKE_UTIL_FILE "${CMAKE_CURRENT_SOURCE_DIR}/build/dependencies/direct_deploy/exqudens-cmake/cmake/util.cmake" CACHE STRING "..." FORCE)
+            else()
+                message(FATAL_ERROR "Unable to resolve CMAKE_UTIL_FILE: '${CMAKE_UTIL_FILE}'")
+            endif()
+        else()
+            set(CMAKE_UTIL_FILE "${CMAKE_CURRENT_SOURCE_DIR}/build/dependencies/direct_deploy/exqudens-cmake/cmake/util.cmake" CACHE STRING "..." FORCE)
+        endif()
+    else()
+        set(CMAKE_UTIL_FILE "$ENV{CMAKE_UTIL_FILE}" CACHE STRING "..." FORCE)
+    endif()
+endif()
+
 set(SKIP_TEST "0" CACHE BOOL "...")
 set(TEST_GROUP ".*UnitTests" CACHE STRING "...")
 set(TEST_CASE "all" CACHE STRING "...")
 
 message(STATUS "CMAKE_UTIL_FILE: '${CMAKE_UTIL_FILE}'")
-message(STATUS "USE_CONAN: '${USE_CONAN}'")
 message(STATUS "SKIP_TEST: '${SKIP_TEST}'")
 message(STATUS "TEST_GROUP: '${TEST_GROUP}'")
 message(STATUS "TEST_CASE: '${TEST_CASE}'")
 
 include("${CMAKE_UTIL_FILE}")
+include("${CMAKE_SOURCE_DIR}/cmake/util.cmake")
 
 string(REPLACE "." ";" PRESET_NAME_ELEMENTS "${PRESET_NAME}")
 if("msvc-x64-x64" IN_LIST "PRESET_NAME_ELEMENTS")
@@ -50,9 +65,6 @@ if("msvc-x64-x64" IN_LIST "PRESET_NAME_ELEMENTS")
             OUTPUT_FILE "${CMAKE_CURRENT_SOURCE_DIR}/build/msvc-x64-x64-toolchain.cmake"
         )
     endif()
-    if("${USE_CONAN}")
-        find_program(CONAN_COMMAND NAMES "conan.exe" PATHS ENV CONAN_PATH ENV PATH REQUIRED NO_CACHE NO_DEFAULT_PATH)
-    endif()
 elseif("gcc" IN_LIST PRESET_NAME_ELEMENTS)
     if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/build/gcc-toolchain.cmake")
         find_file(COMPILER_FILE NAMES "gcc" PATHS ENV GCC_PATH ENV PATH REQUIRED NO_CACHE NO_DEFAULT_PATH)
@@ -62,9 +74,6 @@ elseif("gcc" IN_LIST PRESET_NAME_ELEMENTS)
             PATH "${COMPILER_FILE}"
             OUTPUT_FILE "${CMAKE_CURRENT_SOURCE_DIR}/build/gcc-toolchain.cmake"
         )
-    endif()
-    if("${USE_CONAN}")
-        find_program(CONAN_COMMAND NAMES "conan" PATHS ENV CONAN_PATH ENV PATH REQUIRED NO_CACHE NO_DEFAULT_PATH)
     endif()
 endif()
 
@@ -223,6 +232,12 @@ if("${USE_CONAN}")
     if(NOT "${SKIP_TEST}")
         if(NOT EXISTS "${CONAN_INSTALL_PREFIX}/test/conan-packages.cmake")
             execute_process(
+                #[[execute_process(
+                    COMMAND "${CONAN_COMMAND}" "user" "$ENV{CONAN_LOGIN_USERNAME}" "-r" "artifactory" "-p"
+                    WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+                    ENCODING "UTF-8"
+                    COMMAND_ERROR_IS_FATAL "ANY"
+                )]]
                 COMMAND "${CONAN_COMMAND}" "install"
                         "--output-folder" "${CONAN_INSTALL_PREFIX}/test"
                         ${CONAN_SETTINGS}
@@ -610,15 +625,12 @@ add_custom_target("vscode"
             SOURCE_DIR "${PROJECT_SOURCE_DIR}"
             BINARY_DIR "${PROJECT_BINARY_DIR}"
 
-            LAUNCH_GENERATE "true"
-            LAUNCH_FILE_OVERWRITE "true"
+            LAUNCH_GENERATE "1"
+            LAUNCH_FILE_OVERWRITE "1"
             LAUNCH_TEMPLATE_FILE "${PROJECT_SOURCE_DIR}/src/test/resources/vscode/launch.json"
             LAUNCH_FILE "${PROJECT_SOURCE_DIR}/.vscode/launch.json"
             LAUNCH_TESTS_FILE "${PROJECT_BINARY_DIR}/test/bin/tests.json"
-            LAUNCH_DEFAULT_TEST "LogUnitTests.test_1"
-
-            LAUNCH_ENV_PATH "${PROJECT_BINARY_DIR}/test/bin"
-            LAUNCH_ADD_OPTIONS "*.*"
+            LAUNCH_DEFAULT_TEST "SubProcessUnitTests.test_1"
     DEPENDS "${PROJECT_NAME}" "test-app"
     WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
     USES_TERMINAL

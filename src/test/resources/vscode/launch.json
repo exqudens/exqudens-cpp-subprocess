@@ -7,27 +7,27 @@
             "request": "launch",
             "console": "internalConsole",
             "cwd": "${workspaceRoot}",
-            "program": "${workspaceRoot}/@binary-dir-rel@/test/bin/test-app.exe",
+            "program": "@_BINARY_DIR@/test/bin/test-app.exe",
             "args": [
-                "--project-binary-dir=${workspaceRoot}/@binary-dir-rel@",
-                "--gtest_filter=${input:pick-test}"
+                "--project-binary-dir=@_BINARY_DIR@",
+                "--gtest_filter=${input:test-app-selector}"
             ],
             "environment": [
                 {
                     "name": "PATH",
-                    "value": "@env-path@"
+                    "value": "@_BINARY_DIR@/test/bin"
                 }
             ]
         }
     ],
     "inputs": [
         {
-            "id": "pick-test",
+            "id": "test-app-selector",
             "type": "pickString",
             "description": "Select Test Entry",
-            "default": "@launch.inputs.pick-test.default@",
+            "default": "@_LAUNCH_DEFAULT_TEST@",
             "options": [
-                "@launch.inputs.pick-test.options@"
+                "@_LAUNCH_TESTS@"
             ]
         }
     ]

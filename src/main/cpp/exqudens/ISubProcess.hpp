@@ -37,6 +37,7 @@ namespace exqudens {
 
             virtual std::string readError() = 0;
 
+            virtual unsigned long close(unsigned long timeoutMilliSeconds) = 0;
             virtual unsigned long close() = 0;
 
             virtual ~ISubProcess() = default;
