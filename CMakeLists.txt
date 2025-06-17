@@ -476,11 +476,11 @@ if(NOT "${SKIP_TEST}")
         "GTest::gmock_main"
         "GTest::gtest_main"
     )
-    #[[if(NOT "${BUILD_SHARED_LIBS}")
+    if(NOT "${BUILD_SHARED_LIBS}")
         target_compile_definitions("test-lib" PUBLIC
-            "${BASE_NAME}_STATIC_DEFINE"
+            "TEST_LIB_STATIC_DEFINE"
         )
-    endif()]]
+    endif()
     set_target_properties("test-lib" PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY                "${PROJECT_BINARY_DIR}/test/bin"
         RUNTIME_OUTPUT_DIRECTORY_RELEASE        "${PROJECT_BINARY_DIR}/test/bin"
