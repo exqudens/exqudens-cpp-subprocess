@@ -9,6 +9,8 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <exqudens/Log.hpp>
+#include <exqudens/log/api/Logging.hpp>
 
 #include "TestUtils.hpp"
 #include "exqudens/SubProcess.hpp"
@@ -26,7 +28,7 @@ namespace exqudens {
 
         protected:
 
-            inline static const char* LOGGER_ID = "exqudens.SubProcessUnitTests";
+            inline static const char* LOGGER_ID = "SubProcessUnitTests";
 
         protected:
 
@@ -38,38 +40,7 @@ namespace exqudens {
                 const unsigned short& level,
                 const std::string& message
             ) {
-                if (level > 0 && level <= 6) {
-                    std::string internalLevel = "NONE";
-                    if (level == 1) {
-                        internalLevel = "FATAL";
-                    } else if (level == 2) {
-                        internalLevel = "ERROR";
-                    } else if (level == 3) {
-                        internalLevel = "WARNING";
-                    } else if (level == 4) {
-                        internalLevel = "INFO";
-                    } else if (level == 5) {
-                        internalLevel = "DEBUG";
-                    } else if (level == 6) {
-                        internalLevel = "TRACE";
-                    }
-                    std::string internalFile = std::filesystem::path(file).filename().string();
-                    std::string row = {};
-                    row += internalLevel;
-                    row += " [";
-                    row += id;
-                    row += "] ";
-                    row += function;
-                    row += "(";
-                    row += internalFile;
-                    row += ":";
-                    row += std::to_string(line);
-                    row += "): ";
-                    row += '"';
-                    row += message;
-                    row += '"';
-                    std::cout << row << std::endl;
-                }
+                exqudens::log::api::Logging::Writer(file, line, function, id, level) << message;
             }
 
     };
@@ -78,7 +49,7 @@ namespace exqudens {
         try {
             std::string testGroup = testing::UnitTest::GetInstance()->current_test_info()->test_suite_name();
             std::string testCase = testing::UnitTest::GetInstance()->current_test_info()->name();
-            log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, "bgn");
+            EXQUDENS_LOG_INFO(LOGGER_ID) << "bgn";
 
             std::string command = {};
             std::shared_ptr<ISubProcess> interface = {};
@@ -90,21 +61,21 @@ namespace exqudens {
             unsigned long actualExitCode = {};
 
             command = std::filesystem::path(std::filesystem::path(TestUtils::getProjectBinaryDir()) / "test" / "bin" / "test-executable.exe").generic_string();
-            log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("command: ") + command);
+            EXQUDENS_LOG_INFO(LOGGER_ID) << "command: '" << command << "'";
 
             ASSERT_TRUE(std::filesystem::exists(std::filesystem::path(command)));
 
             command = std::string("\"") + command + '"';
-            log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("command: ") + command);
+            EXQUDENS_LOG_INFO(LOGGER_ID) << "command: '" << command << "'";
 
             interface = std::make_shared<SubProcess>();
-            log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("interface: ") + std::to_string((bool) interface));
+            EXQUDENS_LOG_INFO(LOGGER_ID) << "interface: " << (bool) interface;
 
             interface->setLogFunction(&SubProcessUnitTests::log);
-            log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("interface.isSetLogFunction: ") + std::to_string(interface->isSetLogFunction()));
+            EXQUDENS_LOG_INFO(LOGGER_ID) << "interface.isSetLogFunction: " << interface->isSetLogFunction();
 
             version = interface->getVersion();
-            log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("version: ") + version);
+            EXQUDENS_LOG_INFO(LOGGER_ID) << "version: '" << version << "'";
 
             // case-1
             interface->open(command);
@@ -112,17 +83,17 @@ namespace exqudens {
             interface->write("stdout\r\n");
 
             data = "abc123\r\n";
-            log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("data: ") + data);
+            EXQUDENS_LOG_INFO(LOGGER_ID) << "data: '" << data << "'";
             interface->write(data);
 
             expected = TestUtils::trim(TestUtils::toUpper(data));
-            log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("expected: ") + expected);
+            EXQUDENS_LOG_INFO(LOGGER_ID) << "expected: '" << expected << "'";
 
             data = interface->read();
-            log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("data: ") + data);
+            EXQUDENS_LOG_INFO(LOGGER_ID) << "data: '" << data << "'";
 
             actual = TestUtils::trim(data);
-            log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("actual: ") + actual);
+            EXQUDENS_LOG_INFO(LOGGER_ID) << "actual: '" << actual << "'";
 
             ASSERT_EQ(expected, actual);
 
@@ -140,17 +111,17 @@ namespace exqudens {
             interface->write("stderr\r\n");
 
             data = "321cba\r\n";
-            log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("data: ") + data);
+            EXQUDENS_LOG_INFO(LOGGER_ID) << "data: '" << data << "'";
             interface->write(data);
 
             expected = TestUtils::trim(TestUtils::toUpper(data));
-            log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("expected: ") + expected);
+            EXQUDENS_LOG_INFO(LOGGER_ID) << "expected: '" << expected << "'";
 
             data = interface->readError();
-            log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("data: ") + data);
+            EXQUDENS_LOG_INFO(LOGGER_ID) << "data: '" << data << "'";
 
             actual = TestUtils::trim(data);
-            log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, std::string("actual: ") + actual);
+            EXQUDENS_LOG_INFO(LOGGER_ID) << "actual: '" << actual << "'";
 
             ASSERT_EQ(expected, actual);
 
@@ -162,7 +133,7 @@ namespace exqudens {
 
             ASSERT_EQ(expectedExitCode, actualExitCode);
 
-            log(__FILE__, __LINE__, __FUNCTION__, LOGGER_ID, LOG_LEVEL_INFO, "end");
+            EXQUDENS_LOG_INFO(LOGGER_ID) << "end";
         } catch (const std::exception& e) {
             std::string errorMessage = TestUtils::toString(e);
             std::cout << LOGGER_ID << " ERROR: " << errorMessage << std::endl;

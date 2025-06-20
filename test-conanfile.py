@@ -14,6 +14,7 @@ class ConanConfiguration(ConanFile):
     def requirements(self):
         try:
             self.requires("gtest/1.11.0")
+            self.requires("exqudens-cpp-log/0.0.1")
         except Exception as e:
             self.output.error(e)
             raise e
@@ -21,6 +22,7 @@ class ConanConfiguration(ConanFile):
     def configure(self):
         try:
             self.options["gtest"].shared = self.options.shared
+            self.options["exqudens-cpp-log"].shared = self.options.shared
         except Exception as e:
             self.output.error(e)
             raise e

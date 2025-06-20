@@ -27,6 +27,10 @@ class TEST_LIB_EXPORT TestUtils {
 
         static void init(const std::vector<std::string>& input);
 
+        static std::string getExecutableFile();
+
+        static std::string getExecutableDir();
+
         static std::string getProjectBinaryDir();
 
         static std::vector<std::string> toStringVector(const std::exception& exception, std::vector<std::string> previous = {});

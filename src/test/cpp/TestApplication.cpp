@@ -9,6 +9,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <exqudens/Log.hpp>
 
 #include "TestApplication.hpp"
 #include "TestUtils.hpp"
@@ -28,10 +29,26 @@ int TestApplication::run(int argc, char** argv) {
 
         TestUtils::init(args);
 
+        // logging
+        std::filesystem::path executableDir(TestUtils::getExecutableDir());
+        std::string loggingFile = (executableDir / "log" / "log.txt").generic_string();
+        size_t loggingFileSize = 1073741824; // 1 gb
+        std::map<std::string, unsigned short> loggerIdLevelMap = {
+            {LOGGER_ID, 0},
+            {"exqudens.SubProcess", 0},
+            {"SubProcessUnitTests", 0}
+        };
+        std::string loggingConfigResult = exqudens::Log::configure(loggingFile, loggingFileSize, loggerIdLevelMap);
+
+        EXQUDENS_LOG_INFO(LOGGER_ID) << "bgn";
+        EXQUDENS_LOG_INFO(LOGGER_ID) << "loggingConfigResult: '" << loggingConfigResult << "'";
+
         testing::InitGoogleMock(&argc, argv);
         testing::InitGoogleTest(&argc, argv);
 
         int result = RUN_ALL_TESTS();
+
+        EXQUDENS_LOG_INFO(LOGGER_ID) << "end";
 
         return result;
     } catch (const std::exception& e) {

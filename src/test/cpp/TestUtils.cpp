@@ -35,6 +35,22 @@ void TestUtils::init(const std::vector<std::string>& input) {
     }
 }
 
+std::string TestUtils::getExecutableFile() {
+    try {
+        return data.executableFile.value();
+    } catch (...) {
+        std::throw_with_nested(std::runtime_error(CALL_INFO));
+    }
+}
+
+std::string TestUtils::getExecutableDir() {
+    try {
+        return data.executableDir.value();
+    } catch (...) {
+        std::throw_with_nested(std::runtime_error(CALL_INFO));
+    }
+}
+
 std::string TestUtils::getProjectBinaryDir() {
     try {
         return data.projectBinaryDir.value();

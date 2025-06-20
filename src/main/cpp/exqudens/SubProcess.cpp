@@ -185,11 +185,13 @@ namespace exqudens {
 
     unsigned long SubProcess::close(unsigned long timeoutMilliSeconds) {
         try {
+            unsigned long exitCode = EXIT_SUCCESS;
+
             if (!isOpen()) {
-                throw std::runtime_error(CALL_INFO + ": use 'open' first");
+                return exitCode;
             }
 
-            unsigned long exitCode = EXIT_FAILURE;
+            exitCode = EXIT_FAILURE;
             bool getExitCodeResult = false;
             unsigned long getExitCodeError = 0;
 
@@ -235,10 +237,12 @@ namespace exqudens {
             }
 
             if (!getExitCodeResult) {
-                throw std::runtime_error(CALL_INFO + ": Error writing to process: " + std::to_string(getExitCodeError));
+                throw std::runtime_error(CALL_INFO + ": Error getting process exit code: " + std::to_string(getExitCodeError));
             }
 
             return exitCode;
+        } catch (const std::exception& e) {
+            throw e;
         } catch (...) {
             std::throw_with_nested(std::runtime_error(CALL_INFO));
         }
@@ -247,6 +251,8 @@ namespace exqudens {
     unsigned long SubProcess::close() {
         try {
             return close(1000);
+        } catch (const std::exception& e) {
+            throw e;
         } catch (...) {
             std::throw_with_nested(std::runtime_error(CALL_INFO));
         }
